@@ -5,54 +5,50 @@ import (
 	"regexp"
 )
 
-var profileNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
+var validName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-// ErrInvalidProfileName is returned when a profile name contains invalid characters.
-var ErrInvalidProfileName = errors.New("profile name must contain only alphanumeric characters, hyphens, or underscores")
-
-// ErrProfileNotFound is returned when a requested profile does not exist.
-var ErrProfileNotFound = errors.New("profile not found")
-
-// ErrProfileAlreadyExists is returned when trying to create a duplicate profile.
-var ErrProfileAlreadyExists = errors.New("profile already exists")
-
-// Profile represents a named set of environment variables.
+// Profile holds a named set of environment variables.
 type Profile struct {
-	Name string            `json:"name"`
-	Vars map[string]string `json:"vars"`
+	name string
+	vars map[string]string
 }
 
-// NewProfile creates a new Profile with the given name.
+// NewProfile creates a new empty Profile with the given name.
+// Returns an error if the name contains invalid characters.
 func NewProfile(name string) (*Profile, error) {
-	if !profileNameRegex.MatchString(name) {
-		return nil, ErrInvalidProfileName
+	if !validName.MatchString(name) {
+		return nil, errors.New("profile name must match [a-zA-Z0-9_-]+")
 	}
-	return &Profile{
-		Name: name,
-		Vars: make(map[string]string),
-	}, nil
+	return &Profile{name: name, vars: make(map[string]string)}, nil
 }
 
-// Set adds or updates an environment variable in the profile.
-func (p *Profile) Set(key, value string) {
-	p.Vars[key] = value
-}
+// Name returns the profile's name.
+func (p *Profile) Name() string { return p.name }
 
-// Get retrieves an environment variable from the profile.
+// Set stores a key/value pair in the profile.
+func (p *Profile) Set(key, value string) { p.vars[key] = value }
+
+// Get retrieves a value by key. Returns ("", false) if not found.
 func (p *Profile) Get(key string) (string, bool) {
-	v, ok := p.Vars[key]
+	v, ok := p.vars[key]
 	return v, ok
 }
 
-// Delete removes an environment variable from the profile.
-func (p *Profile) Delete(key string) {
-	delete(p.Vars, key)
+// Delete removes a key from the profile.
+func (p *Profile) Delete(key string) { delete(p.vars, key) }
+
+// Vars returns a shallow copy of all variables in the profile.
+func (p *Profile) Vars() map[string]string {
+	copy := make(map[string]string, len(p.vars))
+	for k, v := range p.vars {
+		copy[k] = v
+	}
+	return copy
 }
 
-// Merge combines another profile's variables into this profile.
-// Variables from other take precedence over existing ones.
-func (p *Profile) Merge(other *Profile) {
-	for k, v := range other.Vars {
-		p.Vars[k] = v
+// Merge copies all variables from src into p, overwriting existing keys.
+func (p *Profile) Merge(src *Profile) {
+	for k, v := range src.vars {
+		p.vars[k] = v
 	}
 }
